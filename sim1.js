@@ -8,7 +8,7 @@ var serverTime; // The time-stamp representing the current time.
 var duration; // The initial duration of the timer.
 var timeRemaining; // The remaining duration of the timer.
 var timer; // Updates and displays the timeRemaining.
-var gameState; // The current state of the timer. 
+var timerState; // The current state of the timer. 
 var pauseTime; // The time-stamp representing when the user last clicked the Pause button or refreshed while paused.
 var restartTimer; // Flag used with pause to display current timer info to a <div> after a page refresh while paused (without restarting the timer).
 var today; // The time-stamp representing current date at 00h 00m 00s. Used to test if timer has completed. 
@@ -18,10 +18,10 @@ var today; // The time-stamp representing current date at 00h 00m 00s. Used to t
 // 
 function initialize()
 {
-// Get local copy of the current gameState from db.
-  gameState = $.ajax({
+// Get local copy of the current timerState from db.
+  timerState = $.ajax({
       type: "POST",
-      url: "getGameState.php",
+      url: "getTimerState.php",
       async: false
   }).responseText; 
 // Get local copy of the instance's initial duration from db.
@@ -31,13 +31,13 @@ function initialize()
       async: false
   }).responseText;
   
-// Perform gameState specific initialization.
-  if (gameState == STARTED)
+// Perform timerState specific initialization.
+  if (timerState == STARTED)
   {
    restartTimer = true;
    start();
   }
-  else if (gameState == PAUSED)
+  else if (timerState == PAUSED)
   {
 // Get local copy of the latest pause time-stamp from db.
    pauseTime = $.ajax({
@@ -49,11 +49,11 @@ function initialize()
    restartTimer = false;
    start();
   }
-  else if (gameState == NOT_STARTED)
+  else if (timerState == NOT_STARTED)
   {
    restartTimer = true;
   }
-  else if (gameState == FINISHED)
+  else if (timerState == FINISHED)
   {
 // Display "Finished" in timer output <div>.
   document.getElementById("output").innerHTML = " Finished ";
@@ -65,7 +65,7 @@ function initialize()
 //
 function start()
 {
- if (gameState != FINISHED)
+ if (timerState != FINISHED)
  { 
 // Update current time from server.
   serverTime = $.ajax({
@@ -74,7 +74,7 @@ function start()
       async: false
   }).responseText;
 // If the timer state is NOT_STARTED, create and sync a new startTime with the server.
-  if (gameState == NOT_STARTED)
+  if (timerState == NOT_STARTED)
    {
 // Use current time for initial local startTime value.
     startTime = serverTime;
@@ -96,18 +96,18 @@ function start()
     }).responseText;
 // Set timeRemaining to be the initial duration of the simulation, retrieved from the db.
     timeRemaining = new Date(duration*1000);
-// Update local gameState to reflect that the simulation has now started.
-    gameState = STARTED;
-// Save updated gameState to db.   
+// Update local timerState to reflect that the simulation has now started.
+    timerState = STARTED;
+// Save updated timerState to db.   
     $.ajax({
        type: "POST",
-       url: "setGameState.php",
-	   data: {"gameState" : gameState},
+       url: "setTimerState.php",
+	   data: {"timerState" : timerState},
        async: false
     }).responseText;
    }
 // If the timer state is PAUSED, update the startTime to compensate for how much time has passed while paused.
-  else if (gameState == PAUSED)
+  else if (timerState == PAUSED)
   {
 // Get local copy of startTime from db.
    startTime = $.ajax({
@@ -149,13 +149,13 @@ function start()
 	    data: {"pauseTime" : 0},
         async: false
      }).responseText;  
-// Update local gameState.
-     gameState = STARTED;
-// Save updated gameState to db.
+// Update local timerState.
+     timerState = STARTED;
+// Save updated timerState to db.
      $.ajax({
         type: "POST",
-        url: "setGameState.php",
-        data: {"gameState" : gameState},
+        url: "setTimerState.php",
+        data: {"timerState" : timerState},
         async: false
      }).responseText;
     }
@@ -166,7 +166,7 @@ function start()
     }
    }
 // If the timer state is STARTED, restart the timer.
-  else if (gameState == STARTED)
+  else if (timerState == STARTED)
   {
 // Load startTime from db.
    startTime = $.ajax({
@@ -228,13 +228,13 @@ function updateTimeRemaining()
   {
 // Stop the timer that updates the display time.
    clearInterval(timer);
-// Update local gameState.
-   gameState = FINISHED;
-// Save updated gameState to db.   
+// Update local timerState.
+   timerState = FINISHED;
+// Save updated timerState to db.   
    $.ajax({
        type: "POST",
-       url: "setGameState.php",
-	   data: {"gameState" : gameState},
+       url: "setTimerState.php",
+	   data: {"timerState" : timerState},
        async: false
    }).responseText; 
 // Display "Finished" in timer output <div>
@@ -255,13 +255,13 @@ function pause()
       url: "getServerTime.php",
       async: false
   }).responseText;   
-// Update local gameState to reflect that the simulation is now paused.
-  gameState = PAUSED;
-// Update gameState in db.   
+// Update local timerState to reflect that the simulation is now paused.
+  timerState = PAUSED;
+// Update timerState in db.   
   $.ajax({
      type: "POST",
-     url: "setGameState.php",
-	 data: {"gameState" : gameState},
+     url: "setTimerState.php",
+	 data: {"timerState" : timerState},
      async: false
   }).responseText;  
 // Format the pauseTime into milliseconds to create a JS Date().
@@ -287,13 +287,13 @@ function pause()
 //
 function reset()
 {
-// Update local gameState.
-  gameState = NOT_STARTED;
-// Save updated gameState to db.   
+// Update local timerState.
+  timerState = NOT_STARTED;
+// Save updated timerState to db.   
    $.ajax({
       type: "POST",
-      url: "setGameState.php",
-	  data: {"gameState" : gameState},
+      url: "setTimerState.php",
+	  data: {"timerState" : timerState},
       async: false
   }).responseText;
 // Clear local pauseTime.

@@ -8,6 +8,6 @@ $result = $con->query($query) or die($con->error.__LINE__);
 $row = mysqli_fetch_array($result);
 
 // show
-$gameState = $row['State'];
-echo $gameState;
+$timerState = $row['State'];
+echo $timerState;
  ?>
