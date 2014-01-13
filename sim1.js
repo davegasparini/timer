@@ -13,6 +13,7 @@ var pauseTime; // The time-stamp representing when the user last clicked the Pau
 var startTimer; // Flag used with pause to display current timer info to a <div> after a page refresh while paused (without restarting the timer).
 var today; // The time-stamp representing current date at 00h 00m 00s. Used to test if timer has completed. 
 
+
 //
 // initialize() loads initial values from db into global variables at body.onLoad();
 // 
@@ -54,6 +55,7 @@ function initialize() {
   }
 }
 
+
 //
 // start() begins timer.
 //
@@ -89,6 +91,7 @@ function start() {
     async: false
   }).responseText;
 }
+
 
 //
 // unpause() updates the startTime to compensate for how much time has passed while paused.
@@ -154,6 +157,7 @@ function unpause() {
   }
 }
 
+
 //
 // resume() restarts the timer.
 //
@@ -209,6 +213,7 @@ function startButton() {
   today.setHours(0, 0, 0, 0);
 }
 
+
 //
 // updateTimeRemaining() updates local timeRemaining & the output <div> accordingly.
 //
@@ -252,6 +257,7 @@ function updateTimeRemaining() {
   }
 }
 
+
 //
 // pause() stops the timer and saves the current state of play.
 //
@@ -292,6 +298,7 @@ function pause() {
     async: false
   }).responseText;
 }
+
 
 //
 // reset() updates all necessary variables to default values.
