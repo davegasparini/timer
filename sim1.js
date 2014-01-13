@@ -55,38 +55,90 @@ function initialize() {
 }
 
 //
-// start() loads the correct timer information based on the current timerState.
+// start() begins timer.
 //
 function start() {
-  // Update current time from server.
-  serverTime = $.ajax({
+  // Use current time for initial local startTime value.
+  startTime = serverTime;
+  // Format the startTime into milliseconds to create a JS Date().
+  var startTimeJSFormat = new Date((startTime * 1000));
+  // Use startTimeJSFormat to create an SQL formatted date.
+  var startTimeSQLFormat = startTimeJSFormat.getFullYear() + '-' + (startTimeJSFormat.getMonth() + 1) + '-' +
+    startTimeJSFormat.getDate() + ' ' + startTimeJSFormat.getHours() + ':' + startTimeJSFormat.getMinutes() +
+    ':' + startTimeJSFormat.getSeconds();
+  // Save the latest SQL formatted serverTime to the db as the new start time.
+  $.ajax({
     type: "POST",
-    url: "getServerTime.php",
+    url: "setStartTime.php",
+    data: {
+      "startTime": startTimeSQLFormat
+    },
+    async: false
+  }).responseText;
+  // Set timeRemaining to be the initial duration of the simulation, retrieved from the db.
+  timeRemaining = new Date(duration * 1000);
+  // Update local timerState to reflect that the simulation has now started.
+  timerState = STARTED;
+  // Save updated timerState to db.   
+  $.ajax({
+    type: "POST",
+    url: "setTimerState.php",
+    data: {
+      "timerState": timerState
+    },
+    async: false
+  }).responseText;
+}
+
+//
+// unpause() updates the startTime to compensate for how much time has passed while paused.
+//
+function unpause() {
+  // Get local copy of startTime from db.
+  startTime = $.ajax({
+    type: "POST",
+    url: "getStartTime.php",
+    async: false
+  }).responseText;
+  // Update local startTime to reflect the time elapsed since the simulation was paused.
+  startTime = (parseInt(startTime) + (serverTime - pauseTime));
+  // Format the startTime into milliseconds to create a JS Date().
+  var startTimeJSFormat = new Date((startTime * 1000));
+  // Use startTimeJSFormat to create an SQL formatted date.
+  var startTimeSQLFormat = startTimeJSFormat.getFullYear() + '-' + (startTimeJSFormat.getMonth() + 1) + '-' +
+    startTimeJSFormat.getDate() + ' ' + startTimeJSFormat.getHours() + ':' + startTimeJSFormat.getMinutes() +
+    ':' + startTimeJSFormat.getSeconds();
+  // Save SQL formatted updated startTime to db.   
+  $.ajax({
+    type: "POST",
+    url: "setStartTime.php",
+    data: {
+      "startTime": startTimeSQLFormat
+    },
     async: false
   }).responseText;
 
-  // If the timer state is NOT_STARTED, create and sync a new startTime with the server.
-  if (timerState == NOT_STARTED) {
-    // Use current time for initial local startTime value.
-    startTime = serverTime;
-    // Format the startTime into milliseconds to create a JS Date().
-    var startTimeJSFormat = new Date((startTime * 1000));
-    // Use startTimeJSFormat to create an SQL formatted date.
-    var startTimeSQLFormat = startTimeJSFormat.getFullYear() + '-' + (startTimeJSFormat.getMonth() + 1) + '-' + startTimeJSFormat.getDate() + ' ' + startTimeJSFormat.getHours() + ':' + startTimeJSFormat.getMinutes() + ':' + startTimeJSFormat.getSeconds();
-    // Save the latest SQL formatted serverTime to the db as the new start time.
+  // Update the remaining play time to be in sync with the server.
+  timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+  // Immediately update <div> time display.
+  updateTimeRemaining();
+
+  // If startTimer is true, set the variables required to start the timer again.
+  if (startTimer) {
+    // Clear local pauseTime now that it's been used to adjust timeRemaining.
+    pauseTime = 0;
+    // Clear PauseTime date from db.   
     $.ajax({
       type: "POST",
-      url: "setStartTime.php",
+      url: "setPauseTime.php",
       data: {
-        "startTime": startTimeSQLFormat
+        "pauseTime": 0
       },
       async: false
     }).responseText;
-    // Set timeRemaining to be the initial duration of the simulation, retrieved from the db.
-    timeRemaining = new Date(duration * 1000);
-    // Update local timerState to reflect that the simulation has now started.
+    // Update local timerState.
     timerState = STARTED;
-    // Save updated timerState to db.   
+    // Save updated timerState to db.
     $.ajax({
       type: "POST",
       url: "setTimerState.php",
@@ -96,92 +148,63 @@ function start() {
       async: false
     }).responseText;
   }
+  // Otherwise timer is still paused. timeRemaining needed to be displayed due to page refresh. pause() again to capture a new pauseTime.
+  else {
+    pause();
+  }
+}
 
-  // If the timer state is PAUSED, update the startTime to compensate for how much time has passed while paused.
-  else if (timerState == PAUSED) {
-    // Get local copy of startTime from db.
-    startTime = $.ajax({
-      type: "POST",
-      url: "getStartTime.php",
-      async: false
-    }).responseText;
-    // Update local startTime to reflect the time elapsed since the simulation was paused.
-    startTime = (parseInt(startTime) + (serverTime - pauseTime));
-    // Format the startTime into milliseconds to create a JS Date().
-    var startTimeJSFormat = new Date((startTime * 1000));
-    // Use startTimeJSFormat to create an SQL formatted date.
-    var startTimeSQLFormat = startTimeJSFormat.getFullYear() + '-' + (startTimeJSFormat.getMonth() + 1) + '-' + startTimeJSFormat.getDate() + ' ' + startTimeJSFormat.getHours() + ':' + startTimeJSFormat.getMinutes() + ':' + startTimeJSFormat.getSeconds();
-    // Save SQL formatted updated startTime to db.   
-    $.ajax({
-      type: "POST",
-      url: "setStartTime.php",
-      data: {
-        "startTime": startTimeSQLFormat
-      },
-      async: false
-    }).responseText;
-    // Update the remaining play time to be in sync with the server.
-    timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
-    // Immediately update <div> time display.
-    updateTimeRemaining();
-    // If startTimer is true, set the variables required to restart the timer.
-    if (startTimer) {
-      // Clear local pauseTime now that it's been used to adjust timeRemaining.
-      pauseTime = 0;
-      // Clear PauseTime date from db.   
-      $.ajax({
-        type: "POST",
-        url: "setPauseTime.php",
-        data: {
-          "pauseTime": 0
-        },
-        async: false
-      }).responseText;
-      // Update local timerState.
-      timerState = STARTED;
-      // Save updated timerState to db.
-      $.ajax({
-        type: "POST",
-        url: "setTimerState.php",
-        data: {
-          "timerState": timerState
-        },
-        async: false
-      }).responseText;
-    }
-    // Timer is still paused, but timeRemaining has been updated due to page refresh, so run pause() to capture a new pauseTime.
-    else {
-      pause();
-    }
+//
+// resume() restarts the timer.
+//
+function resume() {
+  // Load startTime from db.
+  startTime = $.ajax({
+    type: "POST",
+    url: "getStartTime.php",
+    async: false
+  }).responseText;
+
+  // Update the remaining time to be in sync with the server.
+  timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+  // Update <div> time display immediately after calculating timeRemaining.
+  updateTimeRemaining();
+}
+
+
+//
+// startButton() will initiate timer.
+//
+function startButton() {
+  // Update current time from server.
+  serverTime = $.ajax({
+    type: "POST",
+    url: "getServerTime.php",
+    async: false
+  }).responseText;
+
+  // loads the correct timer information based on the current timerState.
+  if (timerState == NOT_STARTED) {
+    start();
+  } else if (timerState == PAUSED) {
+    unpause();
+  } else if (timerState == STARTED) {
+    resume();
   }
 
-  // If the timer state is STARTED, restart the timer.
-  else if (timerState == STARTED) {
-    // Load startTime from db.
-    startTime = $.ajax({
-      type: "POST",
-      url: "getStartTime.php",
-      async: false
-    }).responseText;
-    // Update the remaining time to be in sync with the server.
-    timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
-    // Update <div> time display immediately after calculating timeRemaining.
-    updateTimeRemaining();
-  }
-
-  // If the page has been refreshed while paused, display the current time remaining, but don't restart the timer yet.
+  // If the page has been refreshed while paused, display the current timeRemaining, but don't start the timer yet.
   if (startTimer) {
-    // Set local timer to update the time remaining every second.
+    // Set local timer to update the timeRemaining every second.
     timer = setInterval('updateTimeRemaining();', 1000);
   } else {
-    // Reset startTimer to true now that the pause data has been used to display the current time left after a paused page refresh.
+    // Reset startTimer to true now that the pause data has been used to display the timeRemaining after a page refresh.
     startTimer = true;
   }
 
   // *set another timer to periodically sync server time asynchronously...
   // ...
 
-  // Update the today time-stamp.
+  // Update the today at midnight time-stamp.
   today = new Date();
   today.setHours(0, 0, 0, 0);
 }
@@ -198,14 +221,17 @@ function updateTimeRemaining() {
   var secondsRemaining = timeRemaining.getSeconds();
   // Calculate the total elapsed time since the initial start of the timer.
   var totalSecondsPlayed = (serverTime - startTime);
+
   // Update the "output" <div> to display (total elapsed time) and (time remaining).
   document.getElementById("output").innerHTML = "|: " + totalSecondsPlayed + "<br>" +
     "H: " + hoursRemaining + "<br>M: " + minutesRemaining + "<br>S: " + secondsRemaining +
     "<br>tRTotalms: " + tRTotalms;
+
   // Update the local timeRemaining.
   timeRemaining.setSeconds(timeRemaining.getSeconds() - 1);
   // Update the local serverTime.
   serverTime++;
+
   // Check to see if timer is finished.
   if (tRTotalms <= 0) {
     // Stop the timer that updates the display time.
@@ -249,10 +275,13 @@ function pause() {
     },
     async: false
   }).responseText;
+
   // Format the pauseTime into milliseconds to create a JS Date().
   var pauseTimeJSFormat = new Date((pauseTime * 1000));
   // Use pauseTimeJSFormat to create an SQL formatted date.
-  var pauseTimeSQLFormat = pauseTimeJSFormat.getFullYear() + '-' + (pauseTimeJSFormat.getMonth() + 1) + '-' + pauseTimeJSFormat.getDate() + ' ' + pauseTimeJSFormat.getHours() + ':' + pauseTimeJSFormat.getMinutes() + ':' + pauseTimeJSFormat.getSeconds();
+  var pauseTimeSQLFormat = pauseTimeJSFormat.getFullYear() + '-' + (pauseTimeJSFormat.getMonth() + 1) + '-' +
+    pauseTimeJSFormat.getDate() + ' ' + pauseTimeJSFormat.getHours() + ':' + pauseTimeJSFormat.getMinutes() +
+    ':' + pauseTimeJSFormat.getSeconds();
   // Save SQL formatted date to db.   
   $.ajax({
     type: "POST",
