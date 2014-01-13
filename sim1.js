@@ -2,16 +2,18 @@ var NOT_STARTED = 0;
 var STARTED = 1;
 var PAUSED = 2;
 var FINISHED = 3;
+var SYNCFREQ = 4000; // The frequency of syncing with the server to update data such as the timeRemaining.
 
 var startTime; // The time-stamp representing when the user last clicked the Start button.
 var serverTime; // The time-stamp representing the current time. 
 var duration; // The initial duration of the timer.
 var timeRemaining; // The remaining duration of the timer.
-var timer; // Updates and displays the timeRemaining.
+var timer; // The main timer used to update and display the timeRemaining locally.
 var timerState; // The current state of the timer. 
 var pauseTime; // The time-stamp representing when the user last clicked the Pause button or refreshed while paused.
 var startTimer; // Flag used with pause to display current timer info to a <div> after a page refresh while paused (without restarting the timer).
-var today; // The time-stamp representing current date at 00h 00m 00s. Used to test if timer has completed. 
+var today; // The time-stamp representing current date at 00h 00m 00s. Used to test if timer has completed.
+var syncToServer; // A timer used to periodically update local variables from the server. Keeps all clients' main timer in sync with the server.
 
 
 //
@@ -34,7 +36,7 @@ function initialize() {
   // Perform timerState specific initialization.
   if (timerState == STARTED) {
     startTimer = true;
-    start();
+    startButton();
   } else if (timerState == PAUSED) {
     // Get local copy of the latest pause time-stamp from db.
     pauseTime = $.ajax({
@@ -44,7 +46,7 @@ function initialize() {
     }).responseText;
     // Set startTimer to false before running start() to display the current time left without restarting the timer.
     startTimer = false;
-    start();
+    startButton();
   } else if (timerState == NOT_STARTED) {
     startTimer = true;
   } else if (timerState == FINISHED) {
@@ -121,8 +123,8 @@ function unpause() {
     async: false
   }).responseText;
 
-  // Update the remaining play time to be in sync with the server.
-  timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+  // Set local timeRemaining based off server time.
+  setTimeRemaining();
   // Immediately update <div> time display.
   updateTimeRemaining();
 
@@ -157,6 +159,13 @@ function unpause() {
   }
 }
 
+//
+// setTimeRemaining() updates the timeRemaining based on the last recorded serverTime and startTime.
+//
+function setTimeRemaining() {
+ timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+}
+
 
 //
 // resume() restarts the timer.
@@ -169,8 +178,8 @@ function resume() {
     async: false
   }).responseText;
 
-  // Update the remaining time to be in sync with the server.
-  timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+  // Set local timeRemaining based off server time.
+  setTimeRemaining();
   // Update <div> time display immediately after calculating timeRemaining.
   updateTimeRemaining();
 }
@@ -205,12 +214,38 @@ function startButton() {
     startTimer = true;
   }
 
-  // *set another timer to periodically sync server time asynchronously...
-  // ...
+  // This timer periodically syncs data with the server.
+   syncToServer = setInterval('syncData();', SYNCFREQ);
 
   // Update the today at midnight time-stamp.
   today = new Date();
   today.setHours(0, 0, 0, 0);
+}
+
+
+//
+// syncData()
+//
+function syncData() {
+  // Sync main timer.
+  syncTime();
+  
+  //** Sync other data.
+  // ...
+}
+
+//
+// syncTime()
+//
+function syncTime() {
+ // Update current time from server.
+  serverTime = $.ajax({
+    type: "POST",
+    url: "getServerTime.php",
+    async: false
+  }).responseText;
+ // update timeRemaining
+ setTimeRemaining();
 }
 
 
@@ -264,6 +299,8 @@ function updateTimeRemaining() {
 function pause() {
   // Stop the timer that updates the display time.
   clearInterval(timer);
+  // Stop periodically syncing with the server.
+  clearInterval(syncToServer);
   // Generate and save the new pause time-stamp.
   pauseTime = $.ajax({
     type: "POST",
