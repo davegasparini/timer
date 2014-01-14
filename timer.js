@@ -52,8 +52,6 @@ function initialize() {
   } else if (timerState == FINISHED) {
     // Display "Finished" in timer output <div>.
     document.getElementById("output").innerHTML = " Finished ";
-    // *remove ability for user to click start, pause.
-    // ...
   }
 }
 
@@ -88,9 +86,9 @@ function startButton() {
   }
 
   // This timer periodically syncs data with the server.
-   syncToServer = setInterval('syncData();', SYNCFREQ);
+  syncToServer = setInterval('syncData();', SYNCFREQ);
 
-  // Update the today at midnight time-stamp.
+  // Update the midnight-today time-stamp.
   today = new Date();
   today.setHours(0, 0, 0, 0);
 }
@@ -110,9 +108,9 @@ function updateTimeRemaining() {
   var totalSecondsPlayed = (serverTime - startTime);
 
   // Update the "output" <div> to display (total elapsed time) and (time remaining).
-  document.getElementById("output").innerHTML = "|: " + totalSecondsPlayed + "<br>" +
+  document.getElementById("output").innerHTML = "elapsed: " + totalSecondsPlayed + "<br>" +
     "H: " + hoursRemaining + "<br>M: " + minutesRemaining + "<br>S: " + secondsRemaining +
-    "<br>tRTotalms: " + tRTotalms;
+    "<br>remaining ms: " + tRTotalms;
 
   // Update the local timeRemaining.
   timeRemaining.setSeconds(timeRemaining.getSeconds() - 1);
@@ -123,6 +121,8 @@ function updateTimeRemaining() {
   if (tRTotalms <= 0) {
     // Stop the timer that updates the display time.
     clearInterval(timer);
+    // Stop periodically syncing with the server.
+    clearInterval(syncToServer);
     // Update local timerState.
     timerState = FINISHED;
     // Save updated timerState to db.   
@@ -205,12 +205,12 @@ function unpause() {
     async: false
   }).responseText;
 
-  // Set local timeRemaining based off server time.
+  // Calculate current timeRemaining.
   setTimeRemaining();
   // Immediately update <div> time display.
   updateTimeRemaining();
 
-  // If startTimer is true, set the variables required to start the timer again.
+  // If startTimer is true, set the variables required to start the main timer again.
   if (startTimer) {
     // Clear local pauseTime now that it's been used to adjust timeRemaining.
     pauseTime = 0;
@@ -252,8 +252,7 @@ function resume() {
     url: "getStartTime.php",
     async: false
   }).responseText;
-
-  // Set local timeRemaining based off server time.
+  // calculate current timeRemaining.
   setTimeRemaining();
   // Update <div> time display immediately after calculating timeRemaining.
   updateTimeRemaining();
@@ -285,7 +284,6 @@ function pause() {
     },
     async: false
   }).responseText;
-
   // Format the pauseTime into milliseconds to create a JS Date().
   var pauseTimeJSFormat = new Date((pauseTime * 1000));
   // Use pauseTimeJSFormat to create an SQL formatted date.
@@ -339,7 +337,6 @@ function reset() {
 function syncData() {
   // Sync main timer.
   syncTime();
-  
   //** Sync other data.
   // ...
 }
@@ -349,23 +346,20 @@ function syncData() {
 // syncTime() refreshes main timer associated variables from server.
 //
 function syncTime() {
- // Update current time from server.
+  // Update current time from server.
   serverTime = $.ajax({
     type: "POST",
     url: "getServerTime.php",
     async: false
   }).responseText;
- // update timeRemaining
- setTimeRemaining();
+  // update timeRemaining
+  setTimeRemaining();
 }
 
 
 //
-// setTimeRemaining() updates the timeRemaining based on the last recorded serverTime and startTime.
+// setTimeRemaining() updates the timeRemaining based on startTime and current serverTime. duration is static. 
 //
 function setTimeRemaining() {
- timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
+  timeRemaining = new Date((duration - (serverTime - startTime)) * 1000);
 }
-
-
-
